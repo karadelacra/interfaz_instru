@@ -15,9 +15,12 @@ TEMP_ALTA = 25
 TEMP_BAJA = 18
 HUM_ALTA = 80
 HUM_BAJA = 60
-LUX_ALTO = 156 #40,000 lux
-LUX_BAJO = 120 #15,000 lux
+LUX_ALTO = 156
+LUX_BAJO = 120
 
+# Dimensiones de las barras
+BAR_WIDTH = 50
+BAR_MAX_HEIGHT = 200
 
 # Función para leer datos desde el puerto serial
 def read_serial(port, baud_rate):
@@ -77,47 +80,34 @@ def read_serial(port, baud_rate):
             ser.close()
             print("Puerto serial cerrado correctamente.")
 
+# Calcular altura de la barra basada en el valor actual y los límites
+def calculate_bar_height(value, min_val, max_val):
+    if value == "⚠ Sin datos":
+        return 0
+    if value < min_val:
+        return 0
+    if value > max_val:
+        return BAR_MAX_HEIGHT
+    return int((value - min_val) / (max_val - min_val) * BAR_MAX_HEIGHT)
+
 # Actualizar la interfaz gráfica
 def update_ui():
-    # Evaluar las acciones necesarias
-    temp = sensor_values["Temperatura"]
-    hum = sensor_values["Humedad"]
-    lux = sensor_values["Luz"]
-
-
-    # Actualizar etiquetas de sensores
     for i, sensor_name in enumerate(sensor_names):
         value = sensor_values[sensor_name]
-        if isinstance(value, (int, float)):
-            value = round(value, 2)  # Redondear a 2 decimales
-        if sensor_name == "Temperatura":
-            if value == "⚠ Sin datos":
-                sensor_data_labels[i].config(text=value, fg="gray")
-            elif value > TEMP_ALTA:
-                sensor_data_labels[i].config(text=f"🔥 Alta: {value} °C", fg="red")
-            elif value < TEMP_BAJA:
-                sensor_data_labels[i].config(text=f"❄️ Baja: {value} °C", fg="blue")
-            else:
-                sensor_data_labels[i].config(text=f"✅ {value} °C", fg="green")
-        elif sensor_name == "Humedad":
-            if value == "⚠ Sin datos":
-                sensor_data_labels[i].config(text=value, fg="gray")
-            elif value > HUM_ALTA:
-                sensor_data_labels[i].config(text=f"💧 Alta: {value} %", fg="red")
-            elif value < HUM_BAJA:
-                sensor_data_labels[i].config(text=f"💧 Baja: {value} %", fg="blue")
-            else:
-                sensor_data_labels[i].config(text=f"✅ {value} %", fg="green")
-        elif sensor_name == "Luz":
-            if value == "⚠ Sin datos":
-                sensor_data_labels[i].config(text=value, fg="gray")
-            elif value > LUX_ALTO:
-                sensor_data_labels[i].config(text=f"☀️ Alta:  {round(value*value*1.5, 2)} Lux", fg="red")
-            elif value < LUX_BAJO:
-                sensor_data_labels[i].config(text=f"☀️ Baja: {round(value*value*1.3, 2)} Lux", fg="blue")
-            else:
-                sensor_data_labels[i].config(text=f"✅ {round(value*value*1.4, 2)} Lux", fg="green")
 
+        if sensor_name == "Temperatura":
+            bar_height = calculate_bar_height(value, TEMP_BAJA, TEMP_ALTA)
+        elif sensor_name == "Humedad":
+            bar_height = calculate_bar_height(value, HUM_BAJA, HUM_ALTA)
+        elif sensor_name == "Luz":
+            bar_height = calculate_bar_height(value, LUX_BAJO, LUX_ALTO)
+
+        canvas.coords(bar_rects[i], i * 100 + 50, BAR_MAX_HEIGHT - bar_height, i * 100 + 50 + BAR_WIDTH, BAR_MAX_HEIGHT)
+
+        if value == "⚠ Sin datos":
+            bar_texts[i].config(text=value, fg="gray")
+        else:
+            bar_texts[i].config(text=f"{round(value, 2)}", fg="black")
 
     root.after(500, update_ui)  # Actualizar cada 500 ms
 
@@ -135,33 +125,22 @@ root.title("Sensor Data Viewer")
 root.geometry("500x300")
 root.resizable(False, False)
 
-# Crear un marco para organizar los datos
-frame = tk.Frame(root, bg="white")
-frame.pack(pady=20, padx=20)
+# Crear el canvas para las barras
+canvas = tk.Canvas(root, width=400, height=BAR_MAX_HEIGHT + 50, bg="white")
+canvas.pack(pady=20)
 
-# Crear las columnas para los sensores
-sensor_labels = []
-sensor_frames = []
-sensor_data_labels = []
+# Crear barras y textos
 sensor_names = ["Temperatura", "Luz", "Humedad"]
+bar_rects = []
+bar_texts = []
 
 for i, sensor_name in enumerate(sensor_names):
-    column_frame = tk.Frame(frame, borderwidth=2, relief="ridge", bg="white", width=200, height=100)
-    column_frame.grid_propagate(False)
+    bar = canvas.create_rectangle(i * 100 + 50, BAR_MAX_HEIGHT, i * 100 + 50 + BAR_WIDTH, BAR_MAX_HEIGHT, fill="blue")
+    bar_text = tk.Label(root, text="", font=("Helvetica", 12))
+    bar_text.pack()
 
-    sensor_label = tk.Label(column_frame, text=sensor_name, font=("Helvetica", 14), bg="white", fg="gray")
-    sensor_label.pack()
-
-    sensor_data_label = tk.Label(column_frame, text="", font=("Helvetica", 12), bg="white", fg="gray")
-    sensor_data_label.pack()
-
-    sensor_frames.append(column_frame)
-    sensor_labels.append(sensor_label)
-    sensor_data_labels.append(sensor_data_label)
-
-# Mostrar las columnas en la interfaz
-for i, frame in enumerate(sensor_frames):
-    frame.grid(row=0, column=i, padx=5, pady=5)
+    bar_rects.append(bar)
+    bar_texts.append(bar_text)
 
 # Botón para iniciar la lectura
 start_button = tk.Button(root, text="Iniciar Lectura", font=("Helvetica", 14), command=start_reading, bg="orange", fg="black")

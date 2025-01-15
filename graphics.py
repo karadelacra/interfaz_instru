@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import serial
+import mi_serial
 from matplotlib.animation import FuncAnimation
 
 def update(frame):
